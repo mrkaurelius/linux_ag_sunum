@@ -1,1 +1,47 @@
+format
 baslık sistemi sikintili 
+
+sr
+20
+
+192.168.R.S
+
+host: 192.168.0.1
+userver1: 192.168.0.2
+userver2: 192.168.0.3
+userver3: 192.168.0.4
+
+uPC1 nat dahili1 192.168.0.5
+uPC2 nat dahili2 192.168.0.6 
+
+userver1 nat dahili2 192.168.0.2
+userver2 nat dahili1 192.168.0.3
+
+uPC1 den userver1 userver2 uPC2 traceroute
+
+dahili1
+uPC1 nat dahili1 192.168.0.5
+userver2 nat dahili1 192.168.0.3
+
+dahili2
+uPC2 nat dahili2 192.168.0.6 
+userver1 nat dahili2 192.168.0.2
+
+pc config
+01-network-manager-all.yaml
+# Let NetworkManager manage all devices on this system
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets: 
+    enp0s3:
+      dhcp4: yes
+    enp0s8:
+      dhcp4: no
+      addresses:
+        - 192.168.0.5/24
+          #gateway4: 192.168.0.1
+      nameservers:
+          addresses: [8.8.8.8, 1.1.1.1]
+
+server config
