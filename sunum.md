@@ -3,10 +3,19 @@
 
 \pagebreak
 
-## Makinelerin Klonlanması
+### Makinelerin Klonlanması
 
-!!! makinelerin klonlanmasini ekle
-!!! programlar hakkında metadata ekle
+Base olarak kullanacağımız makineyi oluşturduktan sonra klon makineyi menüden sağ tıklayıp istediğimiz 
+şekilde oluşturabiliyoruz. Biz daha az yer kullanmak ve ortak networklere bağlanacağımız için `Linked Clone` 
+ve `Generate new MAC addresses for all network adapters` seçeneğini kullanacağız.
+
+![Klonlama](./s1/clone.png){ height=250px }
+
+![Klonlanmış Makineler](./s1/clones.png){ height=250px }
+
+Kullanılan yazılımların versiyonları `Ubuntu Desktop / Server 18`, `Virtual Box 6.1`
+
+\pagebreak
 
 ## Senaryo 1
 
@@ -14,14 +23,14 @@
 
 Başlangıc olarak guest makinenin Network Adapterini NAT olarak seçiyoruz
 
-![NAT adapter ayarı](./s1/upc1natconfig.png){ height=200px }
+![NAT adapter ayarı](./s1/upc1natconfig.png){ height=250px }
 
 ##### SSH 
 
 host makineye NAT bağlantı ile erişebilmek için öncelikle gerekli gerekli portu yönlendiriyoruz
 daha sonra gueste ssh ile bağlanabilmek için open-ssh serveri apt ile yüklüyoruz.
 
-![Port forwarding](./s1/natportfrw.png){ height=200px }
+![Port forwarding](./s1/natportfrw.png){ height=250px }
 
 ```bash
 $ apt install opessh-server
