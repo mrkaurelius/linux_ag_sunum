@@ -1,7 +1,9 @@
-# Linux Ağ Yönetimi Final Projesi 
+# Linux Ağ Yönetimi 2020 Bahar Final Projesi 
 # Abdulhamit Kumru 170202020 
 
 \pagebreak
+
+Kullanılan yazılımların versiyonları `Ubuntu Desktop / Server 18`, `Virtual Box 6.1`
 
 ### Makinelerin Klonlanması
 
@@ -13,7 +15,6 @@ ve `Generate new MAC addresses for all network adapters` seçeneğini kullanaca�
 
 ![Klonlanmış Makineler](./s1/clones.png){ height=250px }
 
-Kullanılan yazılımların versiyonları `Ubuntu Desktop / Server 18`, `Virtual Box 6.1`
 
 \pagebreak
 
@@ -254,23 +255,14 @@ $ scp *.txt 192.168.0.3:/home/kumru/
 
 ![NAT Adapter](./s3/nat.png){ height=250px }
 
-#### Network Şeması
-
-dahili1  
-`uPC1 NAT dhcp, dahili1 192.168.0.5`  
-`userver2 NAT dhcp, dahili1 192.168.0.3`
-  
-dahili2  
-` uPC2 NAT, dahili2 192.168.0.6`  
-`userver1 NAT, dahili2 192.168.0.2`
-
 \pagebreak
 
 #### Netplan Ayarları
 
 Ubuntu Server için netplan ayarı 
 
-Internal Network için `50-cloud-init.yaml` dosyasını kullandık.
+Internal Network için `50-cloud-init.yaml` dosyasını kullandık. Farklı ağlarda aynı makine için aynı IPyi
+kullandık.
 
 ```yaml
 # /etc/netplan/50-cloud-init.yaml
@@ -282,9 +274,13 @@ network:
       dhcp4: no
       addresses:
         - 192.168.0.2/24 
-      #gateway4: 192.168.0.1
       nameservers:
-          # aslinda nameserver ayarlamanın anlamı yok ama adet yerini bulsun
+          addresses: [8.8.8.8, 1.1.1.1]
+    enp0s9:
+      dhcp4: no
+      addresses:
+        - 192.168.0.2/24 
+      nameservers:
           addresses: [8.8.8.8, 1.1.1.1]
 ```
 
@@ -325,9 +321,26 @@ Yapılan ayarları uygulama.
 $ sudo netplan --debug apply
 ```
 
+\pagebreak
+
+#### Network Şeması
+
+dahili1  
+`uPC1 NAT, dahili1 192.168.0.5`  
+`userver1 NAT, dahili 192.168.0.2`  
+`userver2 NAT, dahili 192.168.0.3`  
+  
+dahili2  
+` uPC2 NAT, dahili 192.168.0.6`  
+`userver1 NAT, dahili 192.168.0.2`  
+`userver2 NAT, dahili 192.168.0.3`  
+
+
 ![Ubuntu Server ip Komut çıktısı](./s3/serveripa.png){ height=250px }
 
 ![Ubuntu Desktop ip Komut çıktısı](./s3/dtipa.png){ height=250px }
+
+![Serverlar birbiri ile haberleşebiliyor](./s3/interserver.png){ height=250px }
 
 #### traceroute
 

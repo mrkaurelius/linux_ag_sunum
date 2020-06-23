@@ -14,11 +14,22 @@ userver3: 192.168.0.4
 uPC1 nat dahili1 192.168.0.5
 uPC2 nat dahili2 192.168.0.6 
 
-userver1 nat dahili2 192.168.0.2
-userver2 nat dahili1 192.168.0.3
+userver1 nat, dahili2 192.168.0.2, dahili1 192.168.0.2  
+userver2 nat, dahili1 192.168.0.3, dahili2 192.168.0.3
 
 uPC1 den userver1 userver2 uPC2 traceroute
 
+dahili 1
+userver2 dahili1 192.168.0.3 
+userver1 dahili1 192.168.0.2
+uPC1 dahili1 192.168.0.5
+
+dahili 2
+userver1 dahili2 192.168.0.2
+userver2 dahili2 192.168.0.3
+uPC2  dahili2 192.168.0.6 
+
+# hatali
 dahili1
 uPC1 nat dahili1 192.168.0.5
 userver2 nat dahili1 192.168.0.3
