@@ -1,0 +1,395 @@
+Linux Ağ Yönetimi 2020 Bahar Final Projesi
+------------------------------------------
+
+Abdulhamit Kumru 170202020
+--------------------------
+
+Kullanılan yazılımların versiyonları `Ubuntu Desktop / Server 18`,
+`Virtual Box 6.1`
+
+Makinelerin Klonlanması
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Base olarak kullanacağımız makineyi oluşturduktan sonra klon makineyi
+menüden sağ tıklayıp istediğimiz şekilde oluşturabiliyoruz. Biz daha az
+yer kullanmak ve ortak networklere bağlanacağımız için `Linked Clone` ve
+`Generate new MAC addresses for all network adapters` seçeneğini
+kullanacağız.
+
+image:./s1/clone.png[Klonlama,height=250]
+
+image:./s1/clones.png[Klonlanmış Makineler,height=250]
+
+Senaryo 1
+~~~~~~~~~
+
+NAT ile Host-Guest Ubuntu PC Bağlantısı
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Başlangıc olarak guest makinenin Network Adapterini NAT olarak seçiyoruz
+
+image:./s1/upc1natconfig.png[NAT adapter ayarı,height=250]
+
+SSH
+
+host makineye NAT bağlantı ile erişebilmek için öncelikle gerekli
+gerekli portu yönlendiriyoruz daha sonra gueste ssh ile bağlanabilmek
+için open-ssh serveri apt ile yüklüyoruz.
+
+image:./s1/natportfrw.png[Port forwarding,height=250]
+
+[source,bash]
+----
+$ apt install opessh-server
+----
+
+ssh server servisinin ayarlarını dosyasından 22 numaralı portu ve
+parolayı kabul edicek şekilde yapıyoruz.
+
+[source,bash]
+----
+$ echo "Port 22" >> /etc/ssh/sshd_config
+$ echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
+----
+
+Ayarların aktif olmasi için ssh servisimizi yeniden başlatıyoruz.
+
+[source,bash]
+----
+$ sudo service ssh restart
+----
+
+Forward ettiğimiz port üzerinden guest’e bağlabiliriz.
+
+[source,bash]
+----
+$ ssh kumru@192.168.1.100 -p 22222 # hostun ip adresi
+----
+
+image:./s1/natsshscsh.png[Gueste ssh ile baglanma,height=250]
+
+Ping
+++++
+
+Eğer ICMP port ile çalışsaydı aynı şekilde onunda portunu yönlendirip
+gueste ping atabilirdik fakat ICMP TCP/UDP portları üzerinden
+çalışmıyor.
+
+image:./s1/cantping.png[Gueste ping gönderilemiyor,height=250]
+
+Misafir Eklentileri
++++++++++++++++++++
+
+Misafir eklentilerini guest makinye sanal disk takarak yükleyebiliyoruz
+bu sayade hosttan gueste veya guestten hosta kopyala yapıştır ve dosya
+sürekle bırak yapabiliyoruz. Eklentiyi yüklelemek zor değil sanal makine
+penceresinden `Devices > Insert Guest Additions CD...` seçeneğini
+seçince bize autorun.sh’ı çalıştırayım mı diye soruyor evet diyip
+parolamızı girince eklentiler yükleniyor
+
+image:./s1/misafireklentisiyukleme.png[autorun.sh çıktısı,height=250]
+
+Sanal makinenin penceresinden `Devices > Drag and Drop`,
+`Devices > Shared Clipboard` seçeneklerinden detaylı ayar yapılabilir.
+
+image:./s1/dragdrop.png[Gueste eklentileri ile sürükle bırak,height=250]
+
+Network Bridge ile Host, TinyCore Guest Bağlantısı
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Guestin network adapter ayarını Bridge Adapter olarak seçiyoruz
+
+image:./s1/tcnetconf.png[Network Bridge Ayarı,height=250]
+
+TinyCoreda IP’mizi ifconfig komutu ile kontol edebiliyoruz.
+
+image:./s1/tcip.png[ifconfig çıktısı,height=250]
+
+Network Bridge ile Guest LANdaki makine gibi kullanılabilir.
+
+SSH
++++
+
+tce-load programı ile TinyCoreda program yükleyebiliyoruz.
+
+[source,bash]
+----
+# openssh client/server paketini yukleme
+tce-load -w -i openssh.tcz
+# ssh/sshd ayarlari
+cp /usr/local/etc/ssh/ssh_config.orig /usr/local/etc/ssh/ssh_config
+cp /usr/local/etc/ssh/sshd_config.orig /usr/local/etc/ssh/sshd_config
+echo "Port 22" >> /usr/local/etc/ssh/sshd_config
+echo "PasswordAuthentication yes" >> /usr/local/etc/ssh/sshd_config
+# servisi calistirma
+/usr/local/etc/init.d/openssh start
+----
+
+image:./s1/tcssh.png[Gueste ssh bağlantısı,height=250]
+
+Ping
+++++
+
+image:./s1/tcping.png[Gueste ping gönderebiliyoruz,height=250]
+
+Host only Adapter ile Host, Ubuntu Server Guest Bağlantısı
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Host only Adapter kullanabilmek için öncelikle Host Network oluşturmak
+gerekli. Ana Menüden `File > Host Network Manager...`i seçip create
+tıklıyoruz ve Network Oluşuyor.
+
+image:./s1/hostnetworkmanager.png[Host Network,height=250]
+
+Guestimizin Network adapterini Host only Adapter seçip alt seçenekten
+oluşturduğumuz Host Network’ü seçiyoruz.
+
+image:./s1/hostonlyuserver1advanced.png[Host Only Adapter
+Ayarı,height=250]
+
+yaml fromatındaki `/etc/netplan/50-cloud-init.yaml` dosyasını Network
+Interfacemizi DHCP ile yönetilmesi için ayarlıyoruz
+
+[source,yaml]
+----
+# /etc/netplan/50-cloud-init.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s9:
+      dhcp4: yes
+----
+
+Yeni ayarların kullanması için netplan komutunu çalıştırıyoruz.
+
+[source,bash]
+----
+$ sudo netplan --debug apply
+----
+
+image:./s1/hostonlyuserverip.png[Host-only Adapterin Host Networkten
+aldığı IP.,height=250]
+
+SSH
++++
+
+NAT ile Host, Guest Ubuntu PC Bağlantısı bölümünde yaptığımız komutları
+burada tekrar ediyoruz.
+
+[source,bash]
+----
+$ apt install opessh-server
+$ echo "Port 22" >> /etc/ssh/sshd_config
+$ echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
+$ sudo service ssh restart
+----
+
+userver1’e SSH ile bağlanıyoruz.
+
+[source,bash]
+----
+$ ssh kumru@192.168.56.101
+----
+
+image:./s1/hostonlysshuserver.png[Gueste ssh ile bağlanma,height=250]
+
+Ping
+++++
+
+image:./s1/hostonlypinguserver.png[Gueste Ping gönderme,height=250]
+
+Senaryo 2
+~~~~~~~~~
+
+Internal Network ile Host-Guest, Guest-Guest Bağlatısı
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Internal Network Ayarı
+++++++++++++++++++++++
+
+Senaryo geregi ip Ubuntu Serverlarin ipleri
+
+`host: 192.168.0.1 userver1: 192.168.0.2 userver2: 192.168.0.3 userver3: 192.168.0.4`
+
+Internal network için Network Adapterin modunu seçmek yeterli.
+
+image:./s2/userverinternalconf.png[Internal Network Ayarları,height=250]
+
+Netplan Ayarları
+++++++++++++++++
+
+netplan ayarlarını Senaryo 1 de yaptığımız gibi yapıyoruz. Farklı olarak
+dhcp olmadan statik bir şekilde IP alıyoruz
+
+[source,yaml]
+----
+# /etc/netplan/50-cloud-init.yaml
+# S:0 R:2
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s8:
+      dhcp4: no
+      addresses:
+        - 192.168.0.2/24 # userver1 için
+      gateway4: 192.168.0.1
+      nameservers:
+          # aslinda nameserver ayarlamanın anlamı yok ama adet yerini bulsun
+          addresses: [8.8.8.8, 1.1.1.1]
+----
+
+SSH
++++
+
+SSH server yüklediğimiz için ve diğer makineler klon olduğu için bir
+daha SSH yükleme ve ayarlamaya gerek yok. Guestler arasında SSH
+bağlantısı yapılabiliyor.
+
+image:./s2/userverguestssh.png[Guestler Arasında SSH,height=250]
+
+image:./s2/userverguestssh2.png[Guestler Arasında SSH,height=250]
+
+Internal Networkte hostdan guestlere ulaşmak mümkün değil.
+
+image:./s2/userverhostssh.png[Hosttan Gueste SSH denemesi,height=250]
+
+Ping
+++++
+
+Guestler birbirlerine ulaşabildiği için birbirlerine ping göndermeleri
+mümkün.
+
+image:./s2/userverguestping.png[Guestler Arası Ping,height=250]
+
+SCP
++++
+
+Gerek olmasada boş dosya göndermek yerine sıfır yazılmış 100M
+büyüklüğünde dosyalar gönderelim.
+
+[source,bash]
+----
+# dosyalari hazirlama
+$ dd if=/dev/zero of=abdulhamit.txt count=100 bs=1M
+$ cat abdulhamit.txt > kumru.txt > 170202020.txt
+# scp komutu
+$ scp *.txt 192.168.0.3:/home/kumru/
+----
+
+image:./s2/userverscp.png[scp Komutu Çıktısı,height=250]
+
+Senaryo 3
+~~~~~~~~~
+
+Network Ayarları
+^^^^^^^^^^^^^^^^
+
+Virtual Box Ayarları
+++++++++++++++++++++
+
+image:./s3/internal.png[Internal Network Adapter,height=250]
+
+image:./s3/nat.png[NAT Adapter,height=250]
+
+Netplan Ayarları
+++++++++++++++++
+
+Ubuntu Server için netplan ayarı
+
+Internal Network için `50-cloud-init.yaml` dosyasını kullandık. Farklı
+ağlarda aynı makine için aynı IPyi kullandık.
+
+[source,yaml]
+----
+# /etc/netplan/50-cloud-init.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s8:
+      dhcp4: no
+      addresses:
+        - 192.168.0.2/24 
+      nameservers:
+          addresses: [8.8.8.8, 1.1.1.1]
+    enp0s9:
+      dhcp4: no
+      addresses:
+        - 192.168.0.2/24 
+      nameservers:
+          addresses: [8.8.8.8, 1.1.1.1]
+----
+
+NAT için yüklemede oluşturulan `00-installer-config.yaml` dosyasını
+kullandık.
+
+[source,yaml]
+----
+# /etc/netplan/00-installer-config.yaml
+network:
+  ethernets:
+    enp0s3:
+      dhcp4: yes
+    version: 2
+----
+
+Ubuntu Desktop için netplan ayarı.
+
+[source,yaml]
+----
+# /etc/netplan/01-network-manager-all.yaml
+# Let NetworkManager manage all devices on this system
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets: 
+    enp0s3:
+      dhcp4: yes
+    enp0s8:
+      dhcp4: no
+      addresses:
+        - 192.168.0.5/24
+          #gateway4: 192.168.0.1
+      nameservers:
+          addresses: [8.8.8.8, 1.1.1.1]
+----
+
+Yapılan ayarları uygulama.
+
+[source,bash]
+----
+$ sudo netplan --debug apply
+----
+
+Network Şeması
+++++++++++++++
+
+dahili1 +
+`uPC1 NAT, dahili1 192.168.0.5` +
+`userver1 NAT, dahili 192.168.0.2` +
+`userver2 NAT, dahili 192.168.0.3`
+
+dahili2 +
+`uPC2 NAT, dahili 192.168.0.6` +
+`userver1 NAT, dahili 192.168.0.2` +
+`userver2 NAT, dahili 192.168.0.3`
+
+image:./s3/serveripa.png[Ubuntu Server ip Komut çıktısı,height=250]
+
+image:./s3/dtipa.png[Ubuntu Desktop ip Komut çıktısı,height=250]
+
+image:./s3/interserver.png[Serverlar birbiri ile
+haberleşebiliyor,height=250]
+
+traceroute
+++++++++++
+
+Traceroute komutu ile paketlerin izlediği yolun takibini yapabiliriz.
+
+image:./s3/pc1pc2.png[uPC1 -> uPC2,height=250]
+
+image:./s3/pc1s1.png[uPC1 -> userver1,height=250]
+
+image:./s3/pc1s2.png[uPC1 -> userver2,height=250]

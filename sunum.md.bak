@@ -247,165 +247,107 @@ $ scp *.txt 192.168.0.3:/home/kumru/
 
 ## Senaryo 3
 
-Ag planı ekle !!
-Bu senaryoda bir ağdan diğer ağa routing yapmamız istenmekte. Router yazılımı olarak Quaggayı kullanacağız.
-
 ### Network Ayarları
 
-#### Virtual Box Network Ayarları
+#### Virtual Box Ayarları
 
-Serverlardaki adapter4 hariç diğer adaptörler senaryo gerekleri için kullandık. Adapter4 ü ise sunucuları 
-yönetmek için kullandık.
+![Internal Network Adapter](./s3/internal.png){ height=250px }
 
-![uPC1](./s3/pc1vbn.png){ height=250px }
+![NAT Adapter](./s3/nat.png){ height=250px }
 
-![uPC2](./s3/pc2vbn.png){ height=250px }
+\pagebreak
 
-![userver1](./s3/s1vbn.png){ height=250px }
+#### Netplan Ayarları
 
-![userver2](./s3/s2vbn.png){ height=250px }
+Ubuntu Server için netplan ayarı 
 
-#### PC'lerin netplan Ayarları
+Internal Network için `50-cloud-init.yaml` dosyasını kullandık. Farklı ağlarda aynı makine için aynı IPyi
+kullandık.
 
-uPC1 netplan ayarları
 ```yaml
-# uPC1 
+# /etc/netplan/50-cloud-init.yaml
 network:
   version: 2
   renderer: networkd
+  ethernets:
+    enp0s8:
+      dhcp4: no
+      addresses:
+        - 192.168.0.2/24 
+      nameservers:
+          addresses: [8.8.8.8, 1.1.1.1]
+    enp0s9:
+      dhcp4: no
+      addresses:
+        - 192.168.0.2/24 
+      nameservers:
+          addresses: [8.8.8.8, 1.1.1.1]
+```
+
+NAT için yüklemede oluşturulan `00-installer-config.yaml`  dosyasını kullandık.
+
+```yaml
+# /etc/netplan/00-installer-config.yaml
+network:
+  ethernets:
+    enp0s3:
+      dhcp4: yes
+    version: 2
+```
+
+Ubuntu Desktop için netplan ayarı.
+
+```yaml
+# /etc/netplan/01-network-manager-all.yaml
+# Let NetworkManager manage all devices on this system
+network:
+  version: 2
+  renderer: NetworkManager
   ethernets: 
     enp0s3:
       dhcp4: yes
     enp0s8:
       dhcp4: no
       addresses:
-      - 192.168.1.1/24
-      gateway4: 192.168.1.254
+        - 192.168.0.5/24
+          #gateway4: 192.168.0.1
       nameservers:
           addresses: [8.8.8.8, 1.1.1.1]
-      routes:
-      - to: 192.168.0.0/16
-        via: 192.168.1.254
 ```
 
-uPC2 netplan ayarları
-```yaml
-# uPC2
-network:
-  version: 2
-  renderer: networkd
-  ethernets: 
-    enp0s3:
-      dhcp4: yes
-    enp0s8:
-      dhcp4: no
-      addresses:
-        - 192.168.2.1/24
-      gateway4: 192.168.2.254
-      nameservers:
-          addresses: [8.8.8.8, 1.1.1.1]
-      routes: 
-      - to: 192.168.0.0/16
-        via: 192.168.1.254
+Yapılan ayarları uygulama.
+
+```bash
+$ sudo netplan --debug apply
 ```
 
-#### Server'lerin Network Ayarları
-
-Serverlerin nat ayarları
-```yaml
-# serverler için ortak nat ayarı
-network:
-  ethernets:
-    enp0s3:
-      dhcp4: true
-  version: 2
-```
-
-userver2
-```yaml
-# userver2 
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    enp0s8:
-      dhcp4: no
-      addresses:
-        - 192.168.0.1/24
-      #gateway4: 192.168.0.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-    enp0s9:
-      dhcp4: no
-      addresses:
-        - 192.168.100.2/24
-      #gateway4: 192.168.0.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-    enp0s10:
-      dhcp4: no
-      addresses:
-        - 192.168.1.201/24
-      #gateway4: 192.168.0.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-```
-
-userver1
-```yaml
-# userver1 
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    enp0s8:
-      dhcp4: no
-      addresses:
-        - 192.168.0.1/24
-      #gateway4: 192.168.0.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-    enp0s9:
-      dhcp4: no
-      addresses:
-        - 192.168.100.1/24
-      #gateway4: 192.168.0.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-    enp0s10:
-      dhcp4: no
-      addresses:
-        - 192.168.1.200/24
-      #gateway4: 192.168.0.1
-      nameservers:
-        addresses: [8.8.8.8, 8.8.4.4]
-```
-
-#### Serverlera Quagga Kurulumu ve Ayarları
+\pagebreak
 
 #### Network Şeması
-Her bigisayarın NAT bağlantısı var
-- dahili1  
-`uPC1 192.168.1.1`  
-`userver1 192.168.1.254`  
+
+dahili1  
+`uPC1 NAT, dahili1 192.168.0.5`  
+`userver1 NAT, dahili 192.168.0.2`  
+`userver2 NAT, dahili 192.168.0.3`  
   
-- dahili2  
-`uPC2 192.168.2.1`  
-`userver2 192.168.2.254`  
+dahili2  
+` uPC2 NAT, dahili 192.168.0.6`  
+`userver1 NAT, dahili 192.168.0.2`  
+`userver2 NAT, dahili 192.168.0.3`  
 
-- dahili 3, serverlarin kendi aralarındaki bağlantı  
-`userver1 192.168.100.1`  
-`userver2 192.168.100.2`  
 
-![Ubuntu Server1 ip a, ip route Komut çıktısı](./s3/server1ipar.png){ height=250px }
+![Ubuntu Server ip Komut çıktısı](./s3/serveripa.png){ height=250px }
 
-![Ubuntu Server2 ip a, ip route Komut çıktısı](./s3/server2ipar.png){ height=250px }
+![Ubuntu Desktop ip Komut çıktısı](./s3/dtipa.png){ height=250px }
 
-![Ubuntu Desktop1 (uPC1) ip a, ip route Komut çıktısı](./s3/dt1ipar.png){ height=250px }
-
-![Ubuntu Desktop2 (uPC2) ip a, ip route Komut çıktısı](./s3/dt2ipar.png){ height=250px }
+![Serverlar birbiri ile haberleşebiliyor](./s3/interserver.png){ height=250px }
 
 #### traceroute
+
 Traceroute komutu ile paketlerin izlediği yolun takibini yapabiliriz.
 
-![uPC1 -> uPC2, uPC1 -> userver1, uPC1 -> userver2](./s3/pc1tall.png){ height=250px }
+![uPC1 -> uPC2](./s3/pc1pc2.png){ height=250px }
+
+![uPC1 -> userver1](./s3/pc1s1.png){ height=250px }
+
+![uPC1 -> userver2](./s3/pc1s2.png){ height=250px }
