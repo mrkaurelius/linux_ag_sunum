@@ -13,8 +13,7 @@ ve `Generate new MAC addresses for all network adapters` seçeneğini kullanaca�
 
 ![Klonlama](./s1/clone.png){ height=250px }
 
-![Klonlanmış Makineler](./s1/clones.png){ height=250px }
-
+![Klonlanmış Makineler](./s1/clones.png){ height=350px }
 
 \pagebreak
 
@@ -78,6 +77,9 @@ diye soruyor evet diyip parolamızı girince eklentiler yükleniyor
 Sanal makinenin penceresinden  `Devices > Drag and Drop`, `Devices > Shared Clipboard` seçeneklerinden detaylı
 ayar yapılabilir.
 
+
+[gif linki](https://github.com/mrkaurelius/linux_ag_sunum/blob/master/s1/dd.gif)
+
 ![Gueste eklentileri ile sürükle bırak](./s1/dragdrop.png){ height=250px }
 
 ### Network Bridge ile Host, TinyCore Guest Bağlantısı
@@ -113,6 +115,8 @@ echo "PasswordAuthentication yes" >> /usr/local/etc/ssh/sshd_config
 #### Ping
 
 ![Gueste ping gönderebiliyoruz](./s1/tcping.png){ height=250px }
+
+\pagebreak
 
 ### Host only Adapter ile Host, Ubuntu Server Guest Bağlantısı
 
@@ -188,14 +192,21 @@ Internal network için Network Adapterin modunu seçmek yeterli.
 
 ![Internal Network Ayarları](./s2/userverinternalconf.png){ height=250px }
 
+![userver1](./s2/vbnetconf.png){ height=250px }
+
+![userver2](./s2/vbnetconf.png){ height=250px }
+
+![userver3](./s2/vbnetconf.png){ height=250px }
+
 #### Netplan Ayarları
 
 netplan ayarlarını Senaryo 1 de yaptığımız gibi yapıyoruz. Farklı olarak dhcp olmadan statik bir şekilde IP 
 alıyoruz
 
+- userver1
 ```yaml
 # /etc/netplan/50-cloud-init.yaml
-# S:0 R:2
+# S:0 R:2 userver1
 network:
   version: 2
   renderer: networkd
@@ -203,11 +214,38 @@ network:
     enp0s8:
       dhcp4: no
       addresses:
-        - 192.168.0.2/24 # userver1 için
+        - 192.168.0.2/24
       gateway4: 192.168.0.1
-      nameservers:
-          # aslinda nameserver ayarlamanın anlamı yok ama adet yerini bulsun
-          addresses: [8.8.8.8, 1.1.1.1]
+```
+
+- userver2
+```yaml
+# /etc/netplan/50-cloud-init.yaml
+# S:0 R:2 userver2
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s8:
+      dhcp4: no
+      addresses:
+        - 192.168.0.3/24
+      gateway4: 192.168.0.1
+```
+
+- userver3
+```yaml
+# /etc/netplan/50-cloud-init.yaml
+# S:0 R:2 userver3
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s8:
+      dhcp4: no
+      addresses:
+        - 192.168.0.4/24
+      gateway4: 192.168.0.1
 ```
 
 #### SSH
@@ -247,8 +285,21 @@ $ scp *.txt 192.168.0.3:/home/kumru/
 
 ## Senaryo 3
 
-Ag planı ekle !!
 Bu senaryoda bir ağdan diğer ağa routing yapmamız istenmekte. Router yazılımı olarak Quaggayı kullanacağız.
+
+![Şema](./s3/networkdiagram.png){ height=350px }
+
+- dahili1  
+`uPC1 192.168.1.1`  
+`userver1 192.168.1.254`  
+  
+- dahili2  
+`uPC2 192.168.2.1`  
+`userver2 192.168.2.254`  
+
+- dahili 3
+`userver1 192.168.100.1`  
+`userver2 192.168.100.2`  
 
 ### Network Ayarları
 
@@ -383,19 +434,113 @@ network:
 
 #### Serverlera Quagga Kurulumu ve Ayarları
 
-#### Network Şeması
-Her bigisayarın NAT bağlantısı var
-- dahili1  
-`uPC1 192.168.1.1`  
-`userver1 192.168.1.254`  
-  
-- dahili2  
-`uPC2 192.168.2.1`  
-`userver2 192.168.2.254`  
+Buradaki bilgiler [brianlinkletter.com](http://www.brianlinkletter.com/how-to-build-a-network-of-linux-routers-using-quagga/)
+, [ixnfo.com](https://ixnfo.com/en/installing-quagga-on-ubuntu-server-18.html) dan alınmıştır.
 
-- dahili 3, serverlarin kendi aralarındaki bağlantı  
-`userver1 192.168.100.1`  
-`userver2 192.168.100.2`  
+#### Quagga Kurulum Scripti
+
+```bash 
+#!/bin/bash
+# quagga installer
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit
+fi
+
+sudo apt install quagga quagga-doc
+sudo cat > /etc/quagga/daemons << EOF
+zebra=yes
+bgpd=no
+ospfd=yes
+ospf6d=no
+ripd=no
+ripngd=no
+isisd=no
+babeld=no
+EOF
+
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+cp /usr/share/doc/quagga-core/examples/vtysh.conf.sample /etc/quagga/vtysh.conf
+cp /usr/share/doc/quagga-core/examples/zebra.conf.sample /etc/quagga/zebra.conf
+cp /usr/share/doc/quagga-core/examples/bgpd.conf.sample /etc/quagga/bgpd.conf
+chown quagga:quagga /etc/quagga/*.conf
+chown quagga:quaggavty /etc/quagga/vtysh.conf
+chmod 640 /etc/quagga/*.conf
+service zebra start
+service bgpd start
+systemctl enable zebra.service
+systemctl enable bgpd.service
+echo 'VTYSH_PAGER=more' >>/etc/environment 
+echo 'export VTYSH_PAGER=more' >>/etc/bash.bashrc
+```
+
+#### Quagga Ayar Scriptleri
+
+- userver1  
+```bash
+#!/bin/bash
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit
+fi
+cat >> /etc/quagga/ospfd.conf << EOF
+interface enp0s8
+interface enp0s9
+interface lo
+router ospf
+ passive-interface enp0s8
+ network 192.168.1.0/24 area 0.0.0.0
+ network 192.168.100.0/24 area 0.0.0.0
+line vty
+EOF
+cat >> /etc/quagga/zebra.conf << EOF
+interface enp0s8
+ ip address 192.168.1.254/24
+ ipv6 nd suppress-ra
+interface enp0s9
+ ip address 192.168.100.1/24
+ ipv6 nd suppress-ra
+interface lo
+ip forwarding
+line vty
+EOF
+sudo service zebra restart
+sudo service bgpd restart
+```
+
+- userver2  
+```bash
+#!/bin/bash
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit
+fi
+cat >> /etc/quagga/ospfd.conf << EOF
+interface enp0s8
+interface enp0s9
+interface lo
+router ospf
+ passive-interface enp0s8
+ network 192.168.2.0/24 area 0.0.0.0
+ network 192.168.100.0/24 area 0.0.0.0
+line vty
+EOF
+cat >> /etc/quagga/zebra.conf << EOF
+interface enp0s8
+ ip address 192.168.2.254/24
+ ipv6 nd suppress-ra
+interface enp0s9
+ ip address 192.168.100.2/24
+ ipv6 nd suppress-ra
+interface lo
+ip forwarding
+line vty
+EOF
+sudo service zebra restart
+sudo service bgpd restart
+```
+
+#### Ayar sontrası cihazların durumu
 
 ![Ubuntu Server1 ip a, ip route Komut çıktısı](./s3/server1ipar.png){ height=250px }
 
@@ -405,7 +550,7 @@ Her bigisayarın NAT bağlantısı var
 
 ![Ubuntu Desktop2 (uPC2) ip a, ip route Komut çıktısı](./s3/dt2ipar.png){ height=250px }
 
-#### traceroute
+#### traceroute, paket takibi
 Traceroute komutu ile paketlerin izlediği yolun takibini yapabiliriz.
 
 ![uPC1 -> uPC2, uPC1 -> userver1, uPC1 -> userver2](./s3/pc1tall.png){ height=250px }
