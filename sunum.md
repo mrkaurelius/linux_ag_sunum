@@ -77,10 +77,11 @@ diye soruyor evet diyip parolamızı girince eklentiler yükleniyor
 Sanal makinenin penceresinden  `Devices > Drag and Drop`, `Devices > Shared Clipboard` seçeneklerinden detaylı
 ayar yapılabilir.
 
-
-[gif linki](https://github.com/mrkaurelius/linux_ag_sunum/blob/master/s1/dd.gif)
-
 ![Gueste eklentileri ile sürükle bırak](./s1/dragdrop.png){ height=250px }
+
+[gif linki (github)](https://github.com/mrkaurelius/linux_ag_sunum/blob/master/s1/dd.gif)
+
+\pagebreak
 
 ### Network Bridge ile Host, TinyCore Guest Bağlantısı
 
